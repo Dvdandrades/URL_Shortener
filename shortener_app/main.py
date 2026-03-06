@@ -1,7 +1,8 @@
 import validators
 import secrets
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from . import schemas, models
@@ -23,9 +24,27 @@ def raise_bad_request(message: str):
     raise HTTPException(status_code=400, detail=message)
 
 
+def raise_not_found(request: Request):
+    message = f"URL '{request.url}' doesn't exist"
+    raise HTTPException(status_code=404, detail=message)
+
+
 @app.get("/")
 def read_root():
     return "Welcome to the URL Shortener API!"
+
+
+@app.get("/{url_key}")
+def forward_to_target(url_key: str, request: Request, db: Session = Depends(get_db)):
+    db_url = (
+        db.query(models.URL)
+        .filter(models.URL.key == url_key, models.URL.is_active)
+        .first()
+    )
+    if db_url:
+        return RedirectResponse(db_url.target_url)
+    else:
+        raise_not_found(request)
 
 
 @app.post("/url", response_model=schemas.URLInfo)
