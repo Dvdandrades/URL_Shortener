@@ -54,6 +54,14 @@ def forward_to_target(url_key: str, request: Request, db: Session = Depends(get_
         raise_not_found(request)
 
 
+@app.get("/{url_key}/peek")
+def peek_url(url_key: str, request: Request, db: Session = Depends(get_db)):
+    if db_url := crud.get_db_url_by_key(db=db, url_key=url_key):
+        return {"target_url": db_url.target_url}
+    else:
+        raise_not_found(request)
+
+
 @app.get(
     "/admin/{secret_key}", name="administration info", response_model=schemas.URLInfo
 )
