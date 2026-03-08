@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>URL Shortener</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0a0a;
+      --surface:   #111111;
+      --border:    #222222;
+      --accent:    #c8ff00;
+      --accent2:   #ff6b35;
+      --text:      #e8e8e8;
+      --muted:     #555555;
+      --error:     #ff4444;
+      --success:   #c8ff00;
+      --font-mono: 'IBM Plex Mono', monospace;
+      --font-head: 'Space Mono', monospace;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-mono);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.4;
+    }
+
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 2rem 3rem;
+      display: flex;
+      align-items: baseline;
+      gap: 1.5rem;
+      position: relative;
+      z-index: 1;
+      animation: slideDown 0.6s ease both;
+    }
+
+    .logo {
+      font-family: var(--font-head);
+      font-size: 1.8rem;
+      font-weight: 700;
+      letter-spacing: -0.05em;
+      color: var(--accent);
+    }
+
+    .logo span { color: var(--text); }
+
+    .tagline {
+      font-size: 0.7rem;
+      color: var(--muted);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    .status-dot {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 2s infinite;
+    }
+
+    main {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 3rem 2rem 6rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .section {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      overflow: hidden;
+      animation: fadeUp 0.5s ease both;
+    }
+
+    .section:nth-child(1) { animation-delay: 0.1s; }
+    .section:nth-child(2) { animation-delay: 0.2s; }
+    .section:nth-child(3) { animation-delay: 0.3s; }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s;
+    }
+
+    .section-header:hover { background: #161616; }
+
+    .section-number {
+      font-size: 0.65rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      min-width: 2rem;
+    }
+
+    .section-title {
+      font-family: var(--font-head);
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      flex: 1;
+    }
+
+    .section-title .accent { color: var(--accent); }
+    .section-title .accent2 { color: var(--accent2); }
+
+    .chevron {
+      color: var(--muted);
+      font-size: 0.8rem;
+      transition: transform 0.3s;
+    }
+
+    .section.open .chevron { transform: rotate(180deg); }
+
+    .section-body {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 0.35s ease;
+    }
+
+    .section.open .section-body {
+      grid-template-rows: 1fr;
+    }
+
+    .section-inner { overflow: hidden; padding: 0 1.5rem; }
+    .section.open .section-inner { padding: 1.5rem; }
+
+    .field { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1rem; }
+
+    label {
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    input[type="text"], input[type="url"] {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      padding: 0.75rem 1rem;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus,
+    input[type="url"]:focus {
+      border-color: var(--accent);
+    }
+
+    input::placeholder { color: var(--muted); }
+
+    .field-hint {
+      font-size: 0.65rem;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+    }
+
+    button {
+      font-family: var(--font-head);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0.75rem 1.5rem;
+      border: none;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #000;
+    }
+
+    .btn-primary:hover { background: #d4ff1a; transform: translateY(-1px); }
+    .btn-primary:active { transform: translateY(0); }
+
+    .btn-danger {
+      background: transparent;
+      color: var(--error);
+      border: 1px solid var(--error);
+    }
+
+    .btn-danger:hover { background: var(--error); color: #fff; }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--accent2);
+      border: 1px solid var(--accent2);
+    }
+
+    .btn-secondary:hover { background: var(--accent2); color: #fff; }
+
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+
+    .result {
+      margin-top: 1rem;
+      border: 1px solid var(--border);
+      padding: 1.25rem;
+      background: var(--bg);
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .result.visible { display: block; }
+
+    .result.error { border-color: var(--error); }
+    .result.success { border-color: var(--accent); }
+    .result.info { border-color: var(--accent2); }
+
+    .result-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .result-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .result-row:last-child { margin-bottom: 0; }
+
+    .result-key {
+      font-size: 0.65rem;
+      color: var(--muted);
+      min-width: 80px;
+      letter-spacing: 0.05em;
+    }
+
+    .result-val {
+      font-size: 0.8rem;
+      color: var(--text);
+      flex: 1;
+      word-break: break-all;
+    }
+
+    .result-val a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .result-val a:hover { text-decoration: underline; }
+
+    .copy-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 0.2rem 0.5rem;
+      font-size: 0.6rem;
+      cursor: pointer;
+      font-family: var(--font-mono);
+      letter-spacing: 0.05em;
+      transition: all 0.15s;
+    }
+
+    .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .copy-btn.copied { border-color: var(--accent); color: var(--accent); }
+
+    .error-msg { color: var(--error); font-size: 0.8rem; }
+
+    .cursor::after {
+      content: '█';
+      color: var(--accent);
+      animation: blink 1s step-end infinite;
+    }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0; }
+    }
+
+    footer {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 2rem;
+      font-size: 0.65rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 600px) {
+      header { padding: 1.5rem; flex-wrap: wrap; }
+      main { padding: 1.5rem 1rem 4rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo">US<span>.</span></div>
+    <div class="tagline">URL Shortener</div>
+    <div class="status-dot">
+      <div class="dot"></div>
+      <span>ONLINE</span>
+    </div>
+  </header>
+
+  <main>
+
+    <div class="section open" id="sec-shorten">
+      <div class="section-header" onclick="toggle('sec-shorten')">
+        <span class="section-number">01</span>
+        <span class="section-title"><span class="accent">SHORTEN</span> A URL</span>
+        <span class="chevron">▾</span>
+      </div>
+      <div class="section-body">
+        <div class="section-inner">
+          <div class="field">
+            <label>Target URL</label>
+            <input type="url" id="shorten-url" placeholder="https://long-url.com/..." />
+          </div>
+          <div class="field">
+            <label>Custom Key <span style="color:#333">(optional)</span></label>
+            <input type="text" id="shorten-key" placeholder="custom key" />
+            <span class="field-hint">Allowed: letters, digits, . _ ~ —</span>
+          </div>
+          <button class="btn-primary" onclick="shortenUrl()">SHORTEN</button>
+
+          <div class="result" id="shorten-result">
+            <div class="result-label">Result</div>
+            <div id="shorten-result-inner"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" id="sec-peek">
+      <div class="section-header" onclick="toggle('sec-peek')">
+        <span class="section-number">02</span>
+        <span class="section-title"><span class="accent2">PEEK</span> A SHORT URL</span>
+        <span class="chevron">▾</span>
+      </div>
+      <div class="section-body">
+        <div class="section-inner">
+          <div class="field">
+            <label>Short Key</label>
+            <input type="text" id="peek-key" placeholder="ABC12" />
+            <span class="field-hint">The key part after your base URL</span>
+          </div>
+          <button class="btn-secondary" onclick="peekUrl()">PEEK</button>
+
+          <div class="result" id="peek-result">
+            <div class="result-label">Target</div>
+            <div id="peek-result-inner"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" id="sec-delete">
+      <div class="section-header" onclick="toggle('sec-delete')">
+        <span class="section-number">03</span>
+        <span class="section-title"><span style="color:var(--error)">DELETE</span> A SHORT URL</span>
+        <span class="chevron">▾</span>
+      </div>
+      <div class="section-body">
+        <div class="section-inner">
+          <div class="field">
+            <label>Secret Key</label>
+            <input type="text" id="delete-key" placeholder="ABC12_XXXXXXXX" />
+            <span class="field-hint">The secret key returned when you created the URL</span>
+          </div>
+          <button class="btn-danger" onclick="deleteUrl()">DELETE</button>
+
+          <div class="result" id="delete-result">
+            <div class="result-label">Status</div>
+            <div id="delete-result-inner"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <footer>URL SHORTENER · BUILT WITH FASTAPI</footer>
+
+  <script>
+    const BASE = window.location.origin;
+
+    function toggle(id) {
+      document.getElementById(id).classList.toggle('open');
+    }
+
+    function showResult(id, html, type = '') {
+      const el = document.getElementById(id);
+      el.className = `result visible ${type}`;
+      document.getElementById(id + '-inner').innerHTML = html;
+    }
+
+    function copyText(text, btn) {
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = 'COPIED';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'COPY'; btn.classList.remove('copied'); }, 1500);
+      });
+    }
+
+    function resultRow(key, value, link = false, copyable = false) {
+      const val = link
+        ? `<a href="${value}" target="_blank">${value}</a>`
+        : value;
+      const copyBtn = copyable
+        ? `<button class="copy-btn" onclick="copyText('${value}', this)">COPY</button>`
+        : '';
+      return `
+        <div class="result-row">
+          <span class="result-key">${key}</span>
+          <span class="result-val">${val}</span>
+          ${copyBtn}
+        </div>`;
+    }
+
+    async function shortenUrl() {
+      const url = document.getElementById('shorten-url').value.trim();
+      const customKey = document.getElementById('shorten-key').value.trim();
+
+      if (!url) {
+        showResult('shorten-result', '<span class="error-msg">Please enter a URL.</span>', 'error');
+        return;
+      }
+
+      const body = { target_url: url };
+      if (customKey) body.custom_url = customKey;
+
+      try {
+        const res = await fetch(`${BASE}/url`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          showResult('shorten-result', `<span class="error-msg">${data.detail}</span>`, 'error');
+          return;
+        }
+
+        showResult('shorten-result', `
+          ${resultRow('SHORT URL', data.url, true, true)}
+          ${resultRow('ADMIN URL', data.admin_url, true, true)}
+          ${resultRow('CLICKS', data.clicks)}
+          ${resultRow('ACTIVE', data.is_active ? 'YES' : 'NO')}
+        `, 'success');
+
+      } catch (e) {
+        showResult('shorten-result', '<span class="error-msg">Network error. Is the API running?</span>', 'error');
+      }
+    }
+
+    async function peekUrl() {
+      const key = document.getElementById('peek-key').value.trim();
+
+      if (!key) {
+        showResult('peek-result', '<span class="error-msg">Please enter a short key.</span>', 'error');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${BASE}/${key}/peek`);
+        const data = await res.json();
+
+        if (!res.ok) {
+          showResult('peek-result', `<span class="error-msg">${data.detail}</span>`, 'error');
+          return;
+        }
+
+        showResult('peek-result',
+          resultRow('TARGET', data.target_url, true, true),
+          'info'
+        );
+
+      } catch (e) {
+        showResult('peek-result', '<span class="error-msg">Network error. Is the API running?</span>', 'error');
+      }
+    }
+
+    async function deleteUrl() {
+      const key = document.getElementById('delete-key').value.trim();
+
+      if (!key) {
+        showResult('delete-result', '<span class="error-msg">Please enter a secret key.</span>', 'error');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${BASE}/admin/${key}`, { method: 'DELETE' });
+        const data = await res.json();
+
+        if (!res.ok) {
+          showResult('delete-result', `<span class="error-msg">${data.detail}</span>`, 'error');
+          return;
+        }
+
+        showResult('delete-result',
+          `<span style="color:var(--accent)">✓ ${data.detail}</span>`,
+          'success'
+        );
+
+      } catch (e) {
+        showResult('delete-result', '<span class="error-msg">Network error. Is the API running?</span>', 'error');
+      }
+    }
+
+    document.querySelectorAll('input').forEach(input => {
+      input.addEventListener('keydown', e => {
+        if (e.key !== 'Enter') return;
+        const section = input.closest('.section').id;
+        if (section === 'sec-shorten') shortenUrl();
+        if (section === 'sec-peek')    peekUrl();
+        if (section === 'sec-delete')  deleteUrl();
+      });
+    });
+  </script>
+</body>
+</html>

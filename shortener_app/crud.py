@@ -13,7 +13,7 @@ def create_db_url(db: Session, url: schemas.URLBase) -> models.URL:
                 status_code=400,
                 detail="Custom url can only contain letters, digits and '._~-' characters",
             )
-        if get_db_url_by_key(db=db, url_key=url.custom_url):
+        if check_db_url_exists_by_key(db=db, url_key=url.custom_url):
             raise HTTPException(
                 status_code=400,
                 detail=f"Custom url '{url.custom_url}' is already in use",
@@ -35,6 +35,10 @@ def get_db_url_by_key(db: Session, url_key: str) -> models.URL:
         .filter(models.URL.key == url_key, models.URL.is_active)
         .first()
     )
+
+
+def check_db_url_exists_by_key(db: Session, url_key: str) -> models.URL:
+    return db.query(models.URL).filter(models.URL.key == url_key).first()
 
 
 def get_db_url_by_secret_key(db: Session, secret_key: str) -> models.URL:

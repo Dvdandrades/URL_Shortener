@@ -2,7 +2,8 @@ import validators
 import httpx
 
 from fastapi import FastAPI, HTTPException, Depends, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from starlette.datastructures import URL
 
@@ -11,6 +12,7 @@ from .database import SessionLocal, engine
 from .config import get_settings
 
 app = FastAPI()
+app.mount("/static", StaticFiles(directory="shortener_app/static"), name="static")
 models.Base.metadata.create_all(bind=engine)
 
 
@@ -43,7 +45,7 @@ def get_admin_info(db_url: models.URL) -> schemas.URLInfo:
 
 @app.get("/")
 def read_root():
-    return "Welcome to the URL Shortener API!"
+    return FileResponse("shortener_app/static/index.html")
 
 
 @app.get("/{url_key}")
@@ -52,9 +54,13 @@ def forward_to_target(url_key: str, request: Request, db: Session = Depends(get_
         try:
             response = httpx.head(db_url.target_url)
         except httpx.RequestError:
-            raise HTTPException(status_code=502, detail="The target URL is not reachable")
-        if response.status_code >= 400 :
-            raise HTTPException(status_code=502, detail="The target URL is not reachable")
+            raise HTTPException(
+                status_code=502, detail="The target URL is not reachable"
+            )
+        if response.status_code >= 400:
+            raise HTTPException(
+                status_code=502, detail="The target URL is not reachable"
+            )
         crud.update_db_clicks(db=db, db_url=db_url)
         return RedirectResponse(db_url.target_url)
     else:
